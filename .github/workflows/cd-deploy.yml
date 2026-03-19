@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
 
+# Necessary for Workload Identity Federation
+permissions:
+  contents: 'read'
+  id-token: 'write'
+
 jobs:
   deploy-infrastructure:
     runs-on: ubuntu-latest
@@ -15,7 +20,9 @@ jobs:
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v2'
         with:
-          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+          project_id: 'influential-sky-488915-u9'
+          workload_identity_provider: 'projects/282679082866/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-actions-deployer@influential-sky-488915-u9.iam.gserviceaccount.com'
 
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@v2'
@@ -25,7 +32,6 @@ jobs:
 
       - name: Terraform Init
         working-directory: infrastructure
-        # We pass the bucket name via backend-config to keep the code generic
         run: terraform init -backend-config="bucket=${{ secrets.GCP_PROJECT_ID }}-tfstate"
 
       - name: Terraform Apply
@@ -42,7 +48,9 @@ jobs:
       - id: 'auth'
         uses: 'google-github-actions/auth@v2'
         with:
-          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+          project_id: 'influential-sky-488915-u9'
+          workload_identity_provider: 'projects/282679082866/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-actions-deployer@influential-sky-488915-u9.iam.gserviceaccount.com'
 
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@v2'
@@ -50,7 +58,6 @@ jobs:
       - name: Build and Push to Artifact Registry
         working-directory: services/telemetry-ingestion-api
         run: |
-          # Note: We use Artifact Registry (asia-south1-docker.pkg.dev) instead of GCR
           gcloud builds submit --tag asia-south1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/omnistream-repo/ingestion-api:${{ github.sha }}
 
       - name: Deploy to Cloud Run
@@ -70,7 +77,9 @@ jobs:
       - id: 'auth'
         uses: 'google-github-actions/auth@v2'
         with:
-          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+          project_id: 'influential-sky-488915-u9'
+          workload_identity_provider: 'projects/282679082866/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-actions-deployer@influential-sky-488915-u9.iam.gserviceaccount.com'
 
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@v2'
@@ -78,7 +87,6 @@ jobs:
       - name: Deploy Cloud Function
         working-directory: services/analytics-processor
         run: |
-          # Updating the trigger topic to match our real topic name: telemetry-events
           gcloud functions deploy analytics-processor-dev \
             --runtime python311 \
             --trigger-topic telemetry-events \
