@@ -76,5 +76,5 @@ The system follows a decoupled, asynchronous pattern to ensure maximum throughpu
 
 ---
 
-**Author:** [Your Name/Portfolio]  
+**Author:** Aryan Kapoor  
 **Focus:** Cloud Architecture, Event-Driven Systems, SRE Principles
