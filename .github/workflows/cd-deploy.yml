@@ -11,24 +11,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v2'
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service_account_key: ${{ secrets.GCP_SA_KEY }}
-          export_default_credentials: true
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      - name: Initialize Terraform
-        working-directory: infrastructure
-        run: terraform init
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v2'
 
-      - name: Plan Terraform
-        working-directory: infrastructure
-        run: terraform plan -input=false -var="project_id=${{ secrets.GCP_PROJECT_ID }}"
+      - name: 'Setup Terraform'
+        uses: hashicorp/setup-terraform@v3
 
-      - name: Apply Terraform
+      - name: Terraform Init
         working-directory: infrastructure
-        run: terraform apply -input=false -auto-approve -var="project_id=${{ secrets.GCP_PROJECT_ID }}"
+        # We pass the bucket name via backend-config to keep the code generic
+        run: terraform init -backend-config="bucket=${{ secrets.GCP_PROJECT_ID }}-tfstate"
+
+      - name: Terraform Apply
+        working-directory: infrastructure
+        run: terraform apply -auto-approve -var="project_id=${{ secrets.GCP_PROJECT_ID }}"
 
   deploy-telemetry-api:
     runs-on: ubuntu-latest
@@ -36,25 +38,27 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+      
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v2'
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service_account_key: ${{ secrets.GCP_SA_KEY }}
-          export_default_credentials: true
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      - name: Build and Deploy to Cloud Run
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v2'
+
+      - name: Build and Push to Artifact Registry
         working-directory: services/telemetry-ingestion-api
         run: |
-          gcloud builds submit --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/telemetry-ingestion-api:${{ github.sha }}
+          # Note: We use Artifact Registry (asia-south1-docker.pkg.dev) instead of GCR
+          gcloud builds submit --tag asia-south1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/omnistream-repo/ingestion-api:${{ github.sha }}
 
       - name: Deploy to Cloud Run
         run: |
-          gcloud run services update-traffic telemetry-ingestion-api \
-            --region ${{ vars.GCP_REGION }} \
-            --platform managed \
-            --to-latest
+          gcloud run deploy telemetry-ingestion-api \
+            --image asia-south1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/omnistream-repo/ingestion-api:${{ github.sha }} \
+            --region asia-south1 \
+            --platform managed
 
   deploy-analytics-processor:
     runs-on: ubuntu-latest
@@ -62,20 +66,23 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+      
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v2'
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service_account_key: ${{ secrets.GCP_SA_KEY }}
-          export_default_credentials: true
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v2'
 
       - name: Deploy Cloud Function
         working-directory: services/analytics-processor
         run: |
-          gcloud functions deploy analytics-processor \
+          # Updating the trigger topic to match our real topic name: telemetry-events
+          gcloud functions deploy analytics-processor-dev \
             --runtime python311 \
-            --trigger-topic tactical-telemetry-stream \
-            --region ${{ vars.GCP_REGION }} \
+            --trigger-topic telemetry-events \
+            --region asia-south1 \
             --entry-point process_telemetry \
+            --service-account "analytics-processor-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com" \
             --set-env-vars PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
