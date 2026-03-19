@@ -1,0 +1,46 @@
+<!DOCTYPE html> 
+<html> 
+<head> 
+    <title>OmniStream Tactical Map</title> 
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" /> 
+    <style> 
+        #map { height: 600px; width: 100%; background: #1a1a1a; } 
+        body { background: #000; color: #0f0; font-family: monospace; } 
+        .status-box { padding: 10px; border: 1px solid #0f0; margin-bottom: 10px; } 
+    </style> 
+</head> 
+<body> 
+    <div class="status-box">SYSTEM: ONLINE | PROJECT: INFLUENTIAL-SKY-488915-U9</div> 
+    <div id="map"></div> 
+ 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script> 
+    <script type="module"> 
+        // Use Firebase CDN to listen to Firestore 
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"; 
+        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"; 
+ 
+        const firebaseConfig = { projectId: "influential-sky-488915-u9" }; 
+        const app = initializeApp(firebaseConfig); 
+        const db = getFirestore(app); 
+ 
+        // Initialize Map centered on Hyderabad 
+        const map = L.map('map').setView([17.4, 78.4], 13); 
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map); 
+         
+        const markers = {}; 
+ 
+        // LISTEN LIVE to helmet-001 
+        onSnapshot(doc(db, "live_telemetry", "helmet-001"), (doc) => { 
+            const data = doc.data(); 
+            if (data) { 
+                const { latitude, longitude, optical_status } = data; 
+                if (!markers["helmet-001"]) { 
+                    markers["helmet-001"] = L.marker([latitude, longitude]).addTo(map); 
+                } 
+                markers["helmet-001"].setLatLng([latitude, longitude]); 
+                markers["helmet-001"].bindPopup(`<b>HELMET-001</b><br>Status: ${optical_status}`).openPopup(); 
+            } 
+        }); 
+    </script> 
+</body> 
+</html> 

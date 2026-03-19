@@ -1,223 +1,80 @@
-# 🛰️ GCP-OmniStream
+# 🛰️ GCP-OmniStream: Real-Time Tactical Telemetry Pipeline
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GCP-Ready](https://img.shields.io/badge/GCP-Cloud_Run_|_Pub/Sub_|_BigQuery-blue?logo=google-cloud)](https://cloud.google.com/)
-[![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python)](https://www.python.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-20+-green?logo=node.js)](https://nodejs.org/)
+[![GCP](https://img.shields.io/badge/Google_Cloud-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)](https://cloud.google.com/)
+[![Terraform](https://img.shields.io/badge/terraform-%235835CC.svg?style=for-the-badge&logo=terraform&logoColor=white)](https://www.terraform.io/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](https://www.python.org/)
 
-**GCP-OmniStream** is a high-throughput, serverless, and event-driven data pipeline designed for real-time edge telemetry ingestion and analytics on Google Cloud Platform. While originally built for **Tactical Helmet AI Telemetry**, its extensible architecture makes it suitable for any high-frequency IoT use case.
-
----
-
-## 📖 Table of Contents
-
-- [Features](#-features)
-- [Architecture](#-architecture)
-- [Tech Stack](#-tech-stack)
-- [Project Structure](#-project-structure)
-- [Quick Start](#-quick-start)
-  - [Prerequisites](#prerequisites)
-  - [Infrastructure Deployment](#infrastructure-deployment)
-  - [Services Deployment](#services-deployment)
-- [Testing](#-testing)
-- [API Endpoints](#-api-endpoints)
-- [Data Payload Schema](#-data-payload-schema)
-- [FinOps & Cost Optimization](#-finops--cost-optimization)
+**GCP-OmniStream** is an industrial-grade, event-driven data pipeline engineered for the high-frequency ingestion and real-time visualization of telemetry from **Edge-AI Integrated Tactical Helmets**. Built with a focus on **FAANG-level resilience** and **FinOps optimization**, the system leverages a scale-to-zero serverless architecture to maintain sub-second latency while staying within a strict monthly budget.
 
 ---
 
-## ✨ Features
+## 🏗️ Architecture & Data Flow
 
-- **🚀 Serverless Scaling**: Uses Cloud Run and Cloud Functions to scale-to-zero, minimizing costs when idle.
-- **⚡ Real-time Processing**: Sub-second latency from ingestion to analytics using Pub/Sub and BigQuery.
-- **🛡️ Robust Error Handling**: Integrated Dead-Letter Queues (DLQ) for failed telemetry processing.
-- **📊 Real-time Dashboard Support**: WebSocket server for live telemetry streaming to situational awareness dashboards.
-- **📈 Advanced Analytics**: Partitioned BigQuery tables for efficient historical data analysis.
-- **🧪 Integrated Simulation**: Built-in edge device simulators and locust-based load testing tools.
+The system follows a decoupled, asynchronous pattern to ensure maximum throughput and fault tolerance. Each component is independently scalable and isolated.
 
----
+### 1. Edge Ingestion Layer
+![Edge Ingestion](images/1-cloud-run-ingestion-api.png)
+**Technical Proof:** This FastAPI service, deployed on **Google Cloud Run**, serves as the entry point for tactical hardware. It implements Pydantic-based payload validation and generates unique `trace_id` attributes, ensuring that only schema-compliant data enters the pipeline while maintaining distributed tracing capabilities.
 
-## 🏗️ Architecture
+### 2. Message Brokering (The Neural Core)
+![Message Brokering](images/2-pubsub-event-queue.png)
+**Technical Proof:** **Google Cloud Pub/Sub** acts as the high-availability message bus, decoupling the ingestion API from downstream processing. It is configured with a **Dead-Letter Queue (DLQ)** to capture malformed or unprocessable packets, preventing silent data loss and enabling post-mortem analysis of edge-sensor failures.
 
-The system follows a decoupled, event-driven pattern for maximum reliability and scalability.
+### 3. Real-Time State Management
+![Real-Time State](images/3-firestore-live-state.png)
+**Technical Proof:** The **Analytics Processor (Cloud Function)** performs a dual-write operation, synchronously updating **Google Firestore** with the latest device coordinates. This provides a sub-second "Hot Path" for the dashboard, ensuring the tactical map reflects the absolute current state of all active units.
 
-```mermaid
-graph LR
-    subgraph "Edge Layer"
-        ED[Edge Devices]
-    end
+### 4. Historical Data Warehousing
+![Historical Archive](images/4-bigquery-data-warehouse.png)
+**Technical Proof:** Simultaneously, data is archived into **Google BigQuery** for long-term analytical processing. The table is **partitioned by day**, enabling high-performance SQL queries over millions of historical events for mission after-action reviews without incurring massive scan costs.
 
-    subgraph "Ingestion Layer"
-        API[Telemetry API - Cloud Run]
-    end
-
-    subgraph "Messaging Layer"
-        PS[Pub/Sub Topic]
-        DLQ[Pub/Sub DLQ]
-    end
-
-    subgraph "Processing Layer"
-        AP[Analytics Processor - Cloud Function]
-        WS[Situational Awareness - Cloud Run]
-    end
-
-    subgraph "Storage Layer"
-        BQ[(BigQuery)]
-        FS[(Firestore)]
-    end
-
-    ED -->|REST/HTTPS| API
-    API --> PS
-    PS --> AP
-    PS --> WS
-    AP --> BQ
-    AP -.->|Retry Fail| DLQ
-    WS --> FS
-```
+### 5. Tactical Command & Control UI
+![Tactical Map](images/5-tactical-map-dashboard.png)
+**Technical Proof:** The frontend dashboard utilizes **Leaflet.js** and the **Firebase SDK** to create a reactive web interface. It establishes a persistent listener on the Firestore collection, providing real-time marker updates on a map interface as telemetry flows through the pipeline—zero refresh required.
 
 ---
 
-## 🛠️ Tech Stack
+## �️ Technical Deep Dive
 
-- **Infrastructure**: [Terraform](https://www.terraform.io/) (IaC)
-- **API Framework**: [FastAPI](https://fastapi.tiangolo.com/) (Python 3.11)
-- **Streaming**: [Google Cloud Pub/Sub](https://cloud.google.com/pubsub)
-- **Real-time Server**: [Node.js](https://nodejs.org/) with WebSockets
-- **Data Warehouse**: [Google BigQuery](https://cloud.google.com/bigquery)
-- **NoSQL Database**: [Google Firestore](https://cloud.google.com/firestore)
-- **CI/CD**: [GitHub Actions](https://github.com/features/actions)
+### **Resilience & Scaling**
+- **Scale-to-Zero**: Utilizing Cloud Run (v2) and Cloud Functions allows the entire infrastructure to scale down to zero instances during periods of inactivity, effectively eliminating idle compute costs.
+- **Idempotency**: The pipeline uses `event_id` keys to ensure that duplicate messages (a common occurrence in edge networking) do not result in redundant database writes.
+- **Structured Logging**: Integrated with **Google Cloud Logging**, the system emits JSON-formatted logs with embedded severity levels and metadata for rapid debugging via Log Explorer.
+
+### **FinOps Strategy**
+- **Budget Capping**: Terraform-enforced `max_instance_count` limits on Cloud Run prevent unexpected billing spikes during DDoS or sensor malfunction.
+- **Efficient Storage**: BigQuery is configured with `ignore_unknown_values=True`, allowing the schema to evolve without breaking the ingestion pipeline, while Firestore manages state TTLs to control storage costs.
 
 ---
 
 ## 📁 Project Structure
 
 ```bash
-├── .github/workflows/       # CI/CD pipelines (Tests & Deployment)
-├── docs/                    # Architecture details and schemas
-├── edge-simulation/         # Python tools to simulate edge devices
-├── infrastructure/          # Terraform configurations (GCP Resources)
-└── services/
-    ├── analytics-processor/ # Cloud Function (Python) - Pub/Sub to BigQuery
-    ├── situational-awareness-stream/ # WebSocket Server (Node.js)
-    └── telemetry-ingestion-api/     # FastAPI (Python) - Edge Ingestion
+├── infrastructure/          # Terraform (IaC) for Pub/Sub, BQ, Firestore, IAM
+├── services/
+│   ├── analytics-processor/ # Cloud Function (Python) - Dual-write logic
+│   └── telemetry-ingestion-api/ # Cloud Run (FastAPI) - Edge Entry Point
+├── edge-simulation/         # Locust & Python scripts for load testing
+└── dashboard.html           # Real-time Leaflet.js map with Firebase SDK
 ```
 
 ---
 
-## 🚀 Quick Start
+## � Quick Start
 
-### Prerequisites
-
-- [Google Cloud Account](https://console.cloud.google.com/) with billing enabled.
-- [Terraform 1.5+](https://developer.hashicorp.com/terraform/downloads) installed locally.
-- [Python 3.11+](https://www.python.org/downloads/) & [Node.js 20+](https://nodejs.org/en/download/).
-- [Google Cloud SDK (gcloud)](https://cloud.google.com/sdk/docs/install) authenticated.
-
-### Infrastructure Deployment
-
-1. **Configure Environment**
-   ```bash
-   export GCP_PROJECT_ID="your-project-id"
-   export GCP_REGION="asia-south1"
-   export ENVIRONMENT="dev"
-   ```
-
-2. **Provision GCP Resources**
-   ```bash
+1. **Deploy Infrastructure**:
+   ```powershell
    cd infrastructure
-   terraform init
-   terraform apply -var="project_id=$GCP_PROJECT_ID" -var="region=$GCP_REGION"
+   terraform apply -var-file="terraform.tfvars"
    ```
-
-### Services Deployment
-
-**1. Telemetry Ingestion API (Cloud Run)**
-```bash
-cd services/telemetry-ingestion-api
-gcloud builds submit --config=cloudbuild.yaml .
-```
-
-**2. Analytics Processor (Cloud Function)**
-```bash
-cd services/analytics-processor
-gcloud functions deploy analytics-processor \
-  --runtime=python311 \
-  --trigger-topic=tactical-telemetry-stream \
-  --region=$GCP_REGION
-```
+2. **Launch Simulator**:
+   ```powershell
+   python edge-simulation/single_device_test.py --api-url="https://your-api-url.a.run.app/ingest"
+   ```
+3. **View Map**: Open `dashboard.html` in any modern browser to watch the live tactical feed.
 
 ---
 
-## 🧪 Testing
-
-### Single Device Simulation
-Simulate a single tactical helmet sending telemetry every second:
-```bash
-cd edge-simulation
-pip install -r requirements.txt
-python single_device_test.py --api-url=https://your-cloud-run-url.a.run.app
-```
-
-### High-Load Testing
-Run a load test with 100+ concurrent simulated devices using Locust:
-```bash
-cd edge-simulation
-pip install locust
-locust -f load_test_locust.py --host=https://your-cloud-run-url.a.run.app
-```
-
----
-
-## 🔌 API Endpoints
-
-### Ingestion API (Cloud Run)
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/health` | Service health status |
-| `POST` | `/ingest` | Ingest single telemetry payload |
-| `POST` | `/ingest-batch` | Ingest multiple payloads in bulk |
-
-### WebSocket Stream
-| Endpoint | Protocol | Description |
-| :--- | :--- | :--- |
-| `/ws` | `WS/WSS` | Real-time telemetry feed for dashboards |
-
----
-
-## 📊 Data Payload Schema
-
-The pipeline expects telemetry data in the following JSON format:
-
-```json
-{
-  "event_id": "550e8400-e29b-41d4-a716-446655440000",
-  "helmet_id": "helmet-001",
-  "timestamp": "2026-03-12T10:30:45.123Z",
-  "latitude": 17.412345,
-  "longitude": 78.456789,
-  "threat_detected": false,
-  "optical_status": "NORMAL",
-  "metadata": {
-    "battery_level": 87,
-    "signal_strength": -52,
-    "firmware_version": "1.2.3",
-    "device_status": "OPERATIONAL"
-  }
-}
-```
-*For the full JSON Schema, see [payload-schema.json](file:///c:/Users/aryan/OneDrive/Desktop/GCP-OmniStream/docs/payload-schema.json).*
-
----
-
-## 💰 FinOps & Cost Optimization
-
-Built with **FinOps principles** in mind, OmniStream is designed to stay within a **5,000 INR/month** budget:
-- **Cloud Run**: Configured with `min-instances: 0` to ensure zero costs when idle.
-- **BigQuery**: Uses daily partitioning to reduce query costs and optimize storage.
-- **Pub/Sub**: Leverages generous free-tier quotas (first 10GB/month free).
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+**Author:** [Your Name/Portfolio]  
+**Focus:** Cloud Architecture, Event-Driven Systems, SRE Principles
